@@ -18,7 +18,7 @@ defmodule Teachbase.Courses do
 
   """
   def list_lessons do
-    Repo.all(from l in Lesson, preload: [:teacher])
+    Repo.all(from l in Lesson, preload: [:teacher, :attendants])
   end
 
   @doc """
@@ -35,7 +35,7 @@ defmodule Teachbase.Courses do
       ** (Ecto.NoResultsError)
 
   """
-  def get_lessons!(id), do: Lesson |> Repo.get!(id) |> Repo.preload(:teacher)
+  def get_lessons!(id), do: Lesson |> Repo.get!(id) |> Repo.preload([:teacher, :attendants])
 
   @doc """
   Creates a lessons.
@@ -100,5 +100,68 @@ defmodule Teachbase.Courses do
   """
   def change_lessons(%Lesson{} = lessons, attrs \\ %{}) do
     Lesson.changeset(lessons, attrs)
+  end
+
+  @doc """
+  Adds attendant to lesson
+  """
+  def add_attendant_to_lesson(lesson, attendant) do
+    lesson
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.put_assoc(:attendants, [attendant | lesson.attendants])
+    |> Repo.update!
+  end
+
+  @doc """
+  Returns list of attendants by teacher
+  """
+  def list_attendants_by_teacher(teacher) do
+    query =
+      from lesson in Lesson,
+      where: lesson.teacher_id == ^teacher.id,
+      join: user in assoc(lesson, :attendants),
+      select: user
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Returns list of lessons by attendants count
+  """
+  def list_lessons_by_attendants_count(count) do
+    query =
+      from lesson in Lesson,
+      join: user in assoc(lesson, :attendants),
+      group_by: [lesson.id],
+      having: count(user.id) > ^count,
+      select: lesson
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Returns list of lessons by name template
+  """
+  def list_lessons_by_name_template(template) do
+    query =
+      from lesson in Lesson,
+      where: like(lesson.name, ^template),
+      select: lesson
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Returns list of lessons by text
+  """
+  def search_lessons(text) do
+    template = "%#{text}%"
+
+    query =
+      from lesson in Lesson,
+      where: like(lesson.name, ^template) or like(lesson.description, ^template),
+      select: lesson
+
+    Repo.all(query)
   end
 end
